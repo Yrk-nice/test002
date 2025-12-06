@@ -67,8 +67,8 @@ def analyze_screen():
     
     if ok:
         return jsonify({'ok': True, 'analysis': result})
-    else:
-        return jsonify({'ok': False, 'error': result}), 500
+    
+    return jsonify({'ok': False, 'error': result}), 500
 
 def init_plugin(app):
     # No specific db init needed for now unless we want to store analysis history

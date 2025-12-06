@@ -3,6 +3,15 @@
 <div class="screen-wrap">
   <div class="screen-header">
     <div class="screen-title">数据可视大屏</div>
+    <div class="screen-actions">
+      <div class="layui-btn-group" style="margin-right: 10px;">
+        <button type="button" class="layui-btn layui-btn-xs layui-btn-primary" id="btn-2d" style="border-color: #17324d; color: #66d1ff; background: rgba(23,50,77,0.5);">2D 地图</button>
+        <button type="button" class="layui-btn layui-btn-xs layui-btn-normal" id="btn-3d" style="border-color: #17324d; color: #fff; background: #1E9FFF;">3D 地球</button>
+      </div>
+      <button id="btn-analyze" class="layui-btn layui-btn-xs layui-btn-primary" style="border-color: #17324d; color: #66d1ff; background: rgba(23,50,77,0.5);">
+        <i class="layui-icon layui-icon-engine"></i> AI 智能分析
+      </button>
+    </div>
     <div class="screen-time" id="screen-time"></div>
   </div>
   <div class="screen-grid">
@@ -10,15 +19,8 @@
     <div class="panel" id="bar"></div>
     <div class="panel" id="map"></div>
     <div class="panel list">
-      <div class="list-title">
-        最新采集数据
-        <button class="layui-btn layui-btn-xs layui-btn-normal" style="float: right;" id="btn-analyze">AI总结</button>
-      </div>
+      <div class="list-title">最新采集数据</div>
       <div class="list-box" id="latest"></div>
-      <div class="list-box" id="analysis-box" style="display:none; padding: 10px; border-top: 1px solid var(--border-color); height: 40%; background: rgba(0,0,0,0.2);">
-        <div style="color: var(--accent); font-weight: bold; margin-bottom: 5px;">AI 态势总结：</div>
-        <div id="analysis-content" style="font-size: 13px; line-height: 1.6; color: #ddd; white-space: pre-wrap;"></div>
-      </div>
     </div>
   </div>
 </div>
@@ -122,15 +124,71 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='dist/echarts.min.js') }}"></script>
+<script src="{{ url_for('static', filename='dist/echarts-gl.min.js') }}"></script>
 <script src="{{ url_for('static', filename='dist/china.js') }}"></script>
 <script>
 layui.use(function(){
   var $ = layui.$;
+  var layer = layui.layer;
   function tick(){ var d=new Date(); $('#screen-time').text(d.toLocaleString()); }
   tick(); setInterval(tick, 1000);
+  $('#btn-analyze').on('click', function(){
+    var idx = layer.load(2);
+    $.ajax({
+      url: '/api/data/analyze',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({}),
+      success: function(res){
+        layer.close(idx);
+        if(res.ok){
+          var html = (res.analysis||'').replace(/^# (.*$)/gim, '<h1 style="font-size:20px;margin:10px 0;color:#66d1ff;">$1</h1>')
+            .replace(/^## (.*$)/gim, '<h2 style="font-size:18px;margin:10px 0;color:#66d1ff;">$1</h2>')
+            .replace(/^### (.*$)/gim, '<h3 style="font-size:16px;margin:10px 0;color:#66d1ff;">$1</h3>')
+            .replace(/\*\*(.*)\*\*/gim, '<strong style="color:#fff;">$1</strong>')
+            .replace(/\n/gim, '<br>');
+          layer.open({
+            type: 1,
+            title: '<span style="color:#66d1ff;">AI 数据分析报告</span>',
+            area: ['600px', '80%'],
+            shade: 0.7,
+            shadeClose: true,
+            skin: 'layui-layer-nobg',
+            content: '<div style="padding:20px; color:#bfe9ff; background:rgba(11, 26, 42, 0.95); height: 100%; overflow-y:auto; font-size:14px; line-height:1.6; border: 1px solid #17324d; box-sizing: border-box;">' + html + '</div>'
+          });
+        } else {
+          layer.msg('分析失败: ' + (res.error||'未知错误'), {icon: 2});
+        }
+      },
+      error: function(xhr){
+        layer.close(idx);
+        var msg = '请求出错: ' + xhr.statusText;
+        if(xhr.responseJSON && xhr.responseJSON.error) msg = '分析失败: ' + xhr.responseJSON.error;
+        layer.msg(msg, {icon: 2});
+      }
+    });
+  });
   var map = echarts.init(document.getElementById('map'));
   var pie1 = echarts.init(document.getElementById('pie1'));
   var bar = echarts.init(document.getElementById('bar'));
+  
+  var currentMode = '3d';
+  var globalHeat = [];
+  var globalLatest = [];
+
+  $('#btn-2d').on('click', function(){
+    currentMode = '2d';
+    $(this).removeClass('layui-btn-primary').addClass('layui-btn-normal').css({background: '#1E9FFF', color: '#fff'});
+    $('#btn-3d').removeClass('layui-btn-normal').addClass('layui-btn-primary').css({background: 'rgba(23,50,77,0.5)', color: '#66d1ff'});
+    renderCharts(null, null);
+  });
+  $('#btn-3d').on('click', function(){
+    currentMode = '3d';
+    $(this).removeClass('layui-btn-primary').addClass('layui-btn-normal').css({background: '#1E9FFF', color: '#fff'});
+    $('#btn-2d').removeClass('layui-btn-normal').addClass('layui-btn-primary').css({background: 'rgba(23,50,77,0.5)', color: '#66d1ff'});
+    renderCharts(null, null);
+  });
+
   window.addEventListener('resize', function(){
     map.resize();
     pie1.resize();
@@ -151,14 +209,99 @@ layui.use(function(){
     });
   }
   function renderCharts(heat, latest){
-    map.setOption({
-      backgroundColor:'#0b1a2a',
-      tooltip:{trigger:'item'},
-      visualMap:{min:0,max:Math.max.apply(null,(heat||[]).map(function(d){return d.value||0;}).concat([10])),left:20,bottom:20,text:['高','低'],inRange:{color:['#7aa3f0','#3bd3ff','#00f0ff','#9affff']}},
-      series:[{type:'map', map:'china', label:{show:false,color:'#bfe9ff'}, itemStyle:{borderColor:'#124b7a'}, data:heat||[] }]
-    });
+    if(heat) globalHeat = heat;
+    if(latest) globalLatest = latest;
+    var dataHeat = globalHeat || [];
+    var dataLatest = globalLatest || [];
+
+    map.clear();
+    
+    if (currentMode === '2d') {
+      map.setOption({
+        backgroundColor:'#0b1a2a',
+        tooltip:{trigger:'item'},
+        visualMap:{min:0,max:Math.max.apply(null,(dataHeat).map(function(d){return d.value||0;}).concat([10])),left:20,bottom:20,text:['高','低'],inRange:{color:['#7aa3f0','#3bd3ff','#00f0ff','#9affff']}},
+        series:[{type:'map', map:'china', label:{show:false,color:'#bfe9ff'}, itemStyle:{borderColor:'#124b7a'}, data:dataHeat }]
+      });
+    } else {
+      // 3D Earth
+      var provinceCoords = {
+        '北京': [116.40, 39.90], '天津': [117.20, 39.08], '上海': [121.47, 31.23], '重庆': [106.55, 29.57],
+        '河北': [114.51, 38.04], '山西': [112.55, 37.87], '辽宁': [123.43, 41.80], '吉林': [125.32, 43.81],
+        '黑龙江': [126.66, 45.75], '江苏': [118.76, 32.04], '浙江': [120.15, 30.28], '安徽': [117.28, 31.86],
+        '福建': [119.30, 26.08], '江西': [115.89, 28.68], '山东': [117.02, 36.67], '河南': [113.65, 34.76],
+        '湖北': [114.31, 30.52], '湖南': [112.98, 28.11], '广东': [113.26, 23.13], '海南': [110.34, 20.02],
+        '四川': [104.06, 30.67], '贵州': [106.71, 26.57], '云南': [102.71, 25.04], '陕西': [108.94, 34.26],
+        '甘肃': [103.82, 36.06], '青海': [101.77, 36.62], '台湾': [121.50, 25.03], '广西': [108.32, 22.82],
+        '内蒙古': [111.67, 40.82], '宁夏': [106.27, 38.47], '新疆': [87.62, 43.79], '西藏': [91.11, 29.97],
+        '香港': [114.17, 22.32], '澳门': [113.54, 22.19]
+      };
+      var barData = [];
+      var pointData = [];
+      dataHeat.forEach(function(item){
+        var coord = provinceCoords[item.name];
+        if(coord){
+          var val = item.value || 0;
+          // Bar: [lon, lat, value]
+          barData.push([coord[0], coord[1], val]);
+          // Point: {name, value: [lon, lat, 0]}
+          pointData.push({ name: item.name, value: [coord[0], coord[1], 0] });
+        }
+      });
+
+      map.setOption({
+        backgroundColor: '#0b1a2a',
+        globe: {
+          baseTexture: "{{ url_for('static', filename='assets/earth.jpg') }}",
+          heightTexture: "{{ url_for('static', filename='assets/bathymetry.jpg') }}",
+          displacementScale: 0.04,
+          shading: 'realistic',
+          environment: "{{ url_for('static', filename='assets/starfield.jpg') }}",
+          realisticMaterial: { roughness: 0.9 },
+          postEffect: { enable: true },
+          viewControl: { autoRotate: true, distance: 200, targetCoord: [116.46, 39.92] },
+          light: { main: { intensity: 5, shadow: true }, ambient: { intensity: 1 } }
+        },
+        series: [
+          {
+            type: 'bar3D',
+            coordinateSystem: 'globe',
+            data: barData,
+            barSize: 0.8,
+            minHeight: 2,
+            maxHeight: 20,
+            itemStyle: { color: '#3bd3ff', opacity: 0.8 },
+            label: { show: false },
+            shading: 'lambert'
+          },
+          {
+            type: 'scatter3D',
+            coordinateSystem: 'globe',
+            data: pointData,
+            symbolSize: 5,
+            itemStyle: { color: '#fff', opacity: 1 },
+            label: {
+              show: true,
+              position: 'top',
+              formatter: '{b}',
+              textStyle: { 
+                color: '#fff', 
+                fontSize: 14,
+                fontWeight: 'bold',
+                backgroundColor: 'rgba(0,0,0,0.7)', 
+                padding: [4, 6], 
+                borderRadius: 4,
+                borderColor: 'rgba(255,255,255,0.4)',
+                borderWidth: 1
+              }
+            }
+          }
+        ] 
+      });
+    }
+
     var srcCount = {};
-    (latest||[]).forEach(function(it){ var s=(it.source||'').trim()||'未知'; srcCount[s]=(srcCount[s]||0)+1; });
+    (dataLatest).forEach(function(it){ var s=(it.source||'').trim()||'未知'; srcCount[s]=(srcCount[s]||0)+1; });
     var pieData = Object.keys(srcCount).map(function(k){ return {name:k, value:srcCount[k]}; });
     pie1.setOption({
       backgroundColor:'#0b1a2a',
@@ -168,7 +311,7 @@ layui.use(function(){
     });
     var hours = []; var cnt = [];
     for(var i=0;i<24;i++){ hours.push((i<10?'0':'')+i+':00'); cnt.push(0); }
-    (latest||[]).forEach(function(it){ var dt=(it.created_at||''); var m=dt.match(/\b(\d{2}):(\d{2})\b/); var h=m?parseInt(m[1],10):null; if(h!=null && h>=0 && h<24){ cnt[h]++; } });
+    (dataLatest).forEach(function(it){ var dt=(it.created_at||''); var m=dt.match(/\b(\d{2}):(\d{2})\b/); var h=m?parseInt(m[1],10):null; if(h!=null && h>=0 && h<24){ cnt[h]++; } });
     bar.setOption({
       backgroundColor:'#0b1a2a',
       title:{text:'最近数据小时分布',left:'center',textStyle:{color:'#9bd4ff',fontSize:14}},
@@ -176,7 +319,7 @@ layui.use(function(){
       yAxis:{type:'value',axisLine:{lineStyle:{color:'#2a6ea9'}},axisLabel:{color:'#9bd4ff'},splitLine:{lineStyle:{color:'#133a5c'}}},
       series:[{type:'bar',data:cnt,itemStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#3bd3ff'},{offset:1,color:'#1b78c7'}])}}]
     });
-    renderLatest(latest||[]);
+    renderLatest(dataLatest);
   }
   Promise.all([
     $.getJSON('/api/data/heat'),
@@ -186,25 +329,6 @@ layui.use(function(){
     var latest = (res[1]&&res[1].ok)?(res[1].data||[]):[];
     renderCharts(heat, latest);
   }).catch(function(){ renderCharts([], []); });
-  
-  $('#btn-analyze').on('click', function(){
-      var btn = $(this);
-      btn.addClass('layui-btn-disabled').prop('disabled', true).text('分析中...');
-      $('#analysis-box').show();
-      $('#analysis-content').text('AI 正在分析全网舆情态势，请稍候...');
-      
-      $.post("{{ url_for('data_analysis.analyze_screen') }}", {}, function(res){
-          if(res.ok){
-              $('#analysis-content').text(res.analysis);
-          } else {
-              $('#analysis-content').text('分析失败: ' + res.error);
-          }
-          btn.removeClass('layui-btn-disabled').prop('disabled', false).text('AI总结');
-      }).fail(function(xhr){
-          $('#analysis-content').text('请求失败: ' + (xhr.responseJSON ? xhr.responseJSON.error : xhr.statusText));
-          btn.removeClass('layui-btn-disabled').prop('disabled', false).text('AI总结');
-      });
-  });
 });
 </script>
 {% endblock %}
