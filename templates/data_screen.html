@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="screen-wrap">
+  <div class="screen-header">
+    <div class="screen-title">数据可视大屏</div>
+    <div class="screen-time" id="screen-time"></div>
+  </div>
+  <div class="screen-grid">
+    <div class="panel" id="pie1"></div>
+    <div class="panel" id="bar"></div>
+    <div class="panel" id="map"></div>
+    <div class="panel list">
+      <div class="list-title">
+        最新采集数据
+        <button class="layui-btn layui-btn-xs layui-btn-normal" style="float: right;" id="btn-analyze">AI总结</button>
+      </div>
+      <div class="list-box" id="latest"></div>
+      <div class="list-box" id="analysis-box" style="display:none; padding: 10px; border-top: 1px solid var(--border-color); height: 40%; background: rgba(0,0,0,0.2);">
+        <div style="color: var(--accent); font-weight: bold; margin-bottom: 5px;">AI 态势总结：</div>
+        <div id="analysis-content" style="font-size: 13px; line-height: 1.6; color: #ddd; white-space: pre-wrap;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+:root {
+  --screen-bg: #0b1a2a;
+  --panel-bg: rgba(15, 33, 54, 0.8);
+  --border-color: #17324d;
+  --text-main: #e5e7eb;
+  --text-sub: #9bd4ff;
+  --accent: #66d1ff;
+}
+.screen-wrap {
+  background: var(--screen-bg);
+  color: var(--text-main);
+  height: calc(100vh - 85px);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.screen-header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px 12px 10px;
+  border-bottom: 1px solid rgba(23, 50, 77, 0.5);
+  margin-bottom: 12px;
+}
+.screen-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(102, 209, 255, 0.3);
+  letter-spacing: 1px;
+}
+.screen-time {
+  font-family: monospace;
+  font-size: 16px;
+  color: var(--text-sub);
+}
+.screen-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 25% 50% 25%;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+  min-height: 0;
+}
+.panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2) inset;
+  position: relative;
+}
+/* Layout Assignments */
+#pie1 { grid-column: 1 / 2; grid-row: 1 / 2; }
+#bar  { grid-column: 1 / 2; grid-row: 2 / 3; }
+#map  { grid-column: 2 / 3; grid-row: 1 / 3; border: none; background: transparent; box-shadow: none; }
+.panel.list { 
+  grid-column: 3 / 4; 
+  grid-row: 1 / 3; 
+  display: flex; 
+  flex-direction: column; 
+  overflow: hidden;
+}
+
+.list-title {
+  padding: 10px 12px;
+  background: rgba(23, 50, 77, 0.6);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-sub);
+  font-weight: 600;
+  font-size: 15px;
+}
+.list-box {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px;
+}
+/* Scrollbar for list */
+.list-box::-webkit-scrollbar { width: 4px; }
+.list-box::-webkit-scrollbar-track { background: transparent; }
+.list-box::-webkit-scrollbar-thumb { background: #1b4f72; border-radius: 2px; }
+
+.list-item {
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(23, 50, 77, 0.8);
+  font-size: 13px;
+  transition: background 0.2s;
+}
+.list-item:hover { background: rgba(255, 255, 255, 0.02); }
+.list-item .row1 { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.list-item .t { color: #fff; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.list-item .row2 { display: flex; justify-content: space-between; color: #5d7e99; font-size: 12px; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='dist/echarts.min.js') }}"></script>
+<script src="{{ url_for('static', filename='dist/china.js') }}"></script>
+<script>
+layui.use(function(){
+  var $ = layui.$;
+  function tick(){ var d=new Date(); $('#screen-time').text(d.toLocaleString()); }
+  tick(); setInterval(tick, 1000);
+  var map = echarts.init(document.getElementById('map'));
+  var pie1 = echarts.init(document.getElementById('pie1'));
+  var bar = echarts.init(document.getElementById('bar'));
+  window.addEventListener('resize', function(){
+    map.resize();
+    pie1.resize();
+    bar.resize();
+  });
+  function renderLatest(list){
+    var box = $('#latest'); box.empty();
+    (list||[]).forEach(function(it){
+      var row = $('<div class="list-item"></div>');
+      var r1 = $('<div class="row1"></div>');
+      r1.append('<div class="t" title="'+(it.title||'')+'">'+ (it.title||'') +'</div>');
+      row.append(r1);
+      var r2 = $('<div class="row2"></div>');
+      r2.append('<span>'+ (it.source||'') +'</span>');
+      r2.append('<span>'+ (it.created_at||'').substring(5,16) +'</span>');
+      row.append(r2);
+      box.append(row);
+    });
+  }
+  function renderCharts(heat, latest){
+    map.setOption({
+      backgroundColor:'#0b1a2a',
+      tooltip:{trigger:'item'},
+      visualMap:{min:0,max:Math.max.apply(null,(heat||[]).map(function(d){return d.value||0;}).concat([10])),left:20,bottom:20,text:['高','低'],inRange:{color:['#7aa3f0','#3bd3ff','#00f0ff','#9affff']}},
+      series:[{type:'map', map:'china', label:{show:false,color:'#bfe9ff'}, itemStyle:{borderColor:'#124b7a'}, data:heat||[] }]
+    });
+    var srcCount = {};
+    (latest||[]).forEach(function(it){ var s=(it.source||'').trim()||'未知'; srcCount[s]=(srcCount[s]||0)+1; });
+    var pieData = Object.keys(srcCount).map(function(k){ return {name:k, value:srcCount[k]}; });
+    pie1.setOption({
+      backgroundColor:'#0b1a2a',
+      title:{text:'来源分布',left:'center',textStyle:{color:'#9bd4ff',fontSize:14}},
+      tooltip:{trigger:'item'},
+      series:[{type:'pie', radius:['40%','70%'], itemStyle:{borderColor:'#0b1a2a',borderWidth:2}, label:{color:'#9bd4ff'}, data:pieData}]
+    });
+    var hours = []; var cnt = [];
+    for(var i=0;i<24;i++){ hours.push((i<10?'0':'')+i+':00'); cnt.push(0); }
+    (latest||[]).forEach(function(it){ var dt=(it.created_at||''); var m=dt.match(/\b(\d{2}):(\d{2})\b/); var h=m?parseInt(m[1],10):null; if(h!=null && h>=0 && h<24){ cnt[h]++; } });
+    bar.setOption({
+      backgroundColor:'#0b1a2a',
+      title:{text:'最近数据小时分布',left:'center',textStyle:{color:'#9bd4ff',fontSize:14}},
+      xAxis:{type:'category',data:hours,axisLine:{lineStyle:{color:'#2a6ea9'}},axisLabel:{color:'#9bd4ff'}},
+      yAxis:{type:'value',axisLine:{lineStyle:{color:'#2a6ea9'}},axisLabel:{color:'#9bd4ff'},splitLine:{lineStyle:{color:'#133a5c'}}},
+      series:[{type:'bar',data:cnt,itemStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#3bd3ff'},{offset:1,color:'#1b78c7'}])}}]
+    });
+    renderLatest(latest||[]);
+  }
+  Promise.all([
+    $.getJSON('/api/data/heat'),
+    $.getJSON('/api/data/latest')
+  ]).then(function(res){
+    var heat = (res[0]&&res[0].ok)?(res[0].data||[]):[];
+    var latest = (res[1]&&res[1].ok)?(res[1].data||[]):[];
+    renderCharts(heat, latest);
+  }).catch(function(){ renderCharts([], []); });
+  
+  $('#btn-analyze').on('click', function(){
+      var btn = $(this);
+      btn.addClass('layui-btn-disabled').prop('disabled', true).text('分析中...');
+      $('#analysis-box').show();
+      $('#analysis-content').text('AI 正在分析全网舆情态势，请稍候...');
+      
+      $.post("{{ url_for('data_analysis.analyze_screen') }}", {}, function(res){
+          if(res.ok){
+              $('#analysis-content').text(res.analysis);
+          } else {
+              $('#analysis-content').text('分析失败: ' + res.error);
+          }
+          btn.removeClass('layui-btn-disabled').prop('disabled', false).text('AI总结');
+      }).fail(function(xhr){
+          $('#analysis-content').text('请求失败: ' + (xhr.responseJSON ? xhr.responseJSON.error : xhr.statusText));
+          btn.removeClass('layui-btn-disabled').prop('disabled', false).text('AI总结');
+      });
+  });
+});
+</script>
+{% endblock %}

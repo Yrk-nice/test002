@@ -14,34 +14,66 @@
         <img src="{{ app_logo_url }}" alt="logo" style="height:32px;">
         {% endif %}
         <span class="layui-font-18">{{ app_name }}</span>
-        <ul class="layui-nav layui-layout-right" style="margin-left:auto;">
-          <li class="layui-nav-item"><a href="{{ url_for('dashboard') }}">首页</a></li>
-          {% if current_user %}
-          <li class="layui-nav-item"><a href="{{ url_for('crawl_page') }}">数据采集管理</a></li>
-          <li class="layui-nav-item"><a href="{{ url_for('warehouse_list') }}">数据仓库管理</a></li>
-          {% endif %}
-          {% if session.get('role_name') == 'admin' %}
-          <li class="layui-nav-item">
-            <a href="javascript:;">后台</a>
-            <dl class="layui-nav-child">
-              <dd><a href="{{ url_for('admin_users') }}">用户管理</a></dd>
-              <dd><a href="{{ url_for('admin_roles') }}">角色管理</a></dd>
-              <dd><a href="{{ url_for('admin_settings') }}">系统设置</a></dd>
-              <dd><a href="{{ url_for('admin_rules_list') }}">采集规则库</a></dd>
-              <dd><a href="{{ url_for('admin_engines_list') }}">AI引擎管理</a></dd>
-            </dl>
-          </li>
-          {% endif %}
-          {% if current_user %}
-          <li class="layui-nav-item"><a href="{{ url_for('logout') }}">退出</a></li>
-          {% endif %}
-        </ul>
+        {% if current_user %}
+        <div class="header-actions" style="margin-left:auto;">
+          <a href="{{ url_for('logout') }}" class="logout-link">退出</a>
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>
-  <div class="layui-container" style="padding: 16px;">
-    {% block content %}{% endblock %}
+  <div class="layout">
+    <div class="sidebar">
+      <ul class="layui-nav layui-nav-tree" lay-shrink="all">
+        {% for item in menu_tree %}
+          {% if item.children %}
+            {# Check if current request is in children to expand #}
+            {% set is_parent_active = false %}
+            {% for child in item.children %}
+                {% if request.endpoint == child.endpoint %}
+                    {% set is_parent_active = true %}
+                {% endif %}
+            {% endfor %}
+            
+            <li class="layui-nav-item {{ 'layui-nav-itemed' if is_parent_active else '' }}">
+              <a href="javascript:;">{{ item.name }}</a>
+              <dl class="layui-nav-child">
+                {% for child in item.children %}
+                  <dd class="{{ 'layui-this' if request.endpoint == child.endpoint else '' }}">
+                      <a href="{{ url_for(child.endpoint) if child.endpoint and child.endpoint != '#' else 'javascript:;' }}">{{ child.name }}</a>
+                  </dd>
+                {% endfor %}
+              </dl>
+            </li>
+          {% else %}
+            <li class="layui-nav-item {{ 'layui-this' if request.endpoint == item.endpoint else '' }}">
+               <a href="{{ url_for(item.endpoint) if item.endpoint and item.endpoint != '#' else 'javascript:;' }}">{{ item.name }}</a>
+            </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="content">
+      <div class="layui-container" style="padding: 16px;">
+        {% block content %}{% endblock %}
+      </div>
+    </div>
   </div>
+  <style>
+  :root{--nav-bg:#20222A;--nav-fg:#fff;--nav-fg-sub:#ddd}
+  .layui-header{background-color:var(--nav-bg)}
+  .layui-header .layui-font-18{color:var(--nav-fg)}
+  .layout{display:flex;min-height:calc(100vh - 60px)}
+  .sidebar{width:220px;border-right:1px solid #1f2128;background-color:var(--nav-bg);padding:8px 0}
+  .content{flex:1;background:#fff}
+  .sidebar .layui-nav{background:transparent}
+  .sidebar .layui-nav .layui-nav-item>a{color:var(--nav-fg)}
+  .sidebar .layui-nav .layui-nav-itemed>.layui-nav-child a{color:var(--nav-fg-sub)}
+  .sidebar .layui-nav .layui-nav-item>a:hover{background:rgba(255,255,255,.06)}
+  .sidebar .layui-nav .layui-this>a{background:rgba(255,255,255,.12);color:var(--nav-fg)}
+  .header-actions .logout-link{color:var(--nav-fg)}
+  .header-actions .logout-link:hover{opacity:.85}
+  </style>
   <script src="{{ url_for('static', filename='layui/layui.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>

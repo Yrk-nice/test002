@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="layui-card">
+  <div class="layui-card-header">{{ '编辑爬虫' if row else '新增爬虫' }}</div>
+  <div class="layui-card-body">
+    {% if error %}
+    <div class="layui-elem-quote" style="color:#ff5722;">{{ error }}</div>
+    {% endif %}
+    <form class="layui-form" method="post">
+      <div class="layui-form-item">
+        <label class="layui-form-label">名称</label>
+        <div class="layui-input-block">
+          <input type="text" name="name" value="{{ row['name'] if row else '' }}" class="layui-input" placeholder="例如：百度新闻爬虫">
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">基础URL</label>
+        <div class="layui-input-block">
+          <input type="text" name="base_url" value="{{ row['base_url'] if row else '' }}" class="layui-input" placeholder="例如：https://www.example.com">
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">起始URL</label>
+        <div class="layui-input-block">
+          <input type="text" name="start_url" value="{{ row['start_url'] if row else '' }}" class="layui-input" placeholder="入口地址，用于起始抓取">
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">启用</label>
+        <div class="layui-input-block">
+          <input type="checkbox" name="enabled" value="1" {% if row and row['enabled'] %}checked{% endif %} lay-skin="switch" lay-text="是|否">
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">Headers(JSON)</label>
+        <div class="layui-input-block">
+          <textarea name="headers_json" class="layui-textarea" style="min-height:120px;" placeholder='{"User-Agent":"...","Cookie":"..."}'>{{ row['headers_json'] if row else '' }}</textarea>
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">备注</label>
+        <div class="layui-input-block">
+          <textarea name="notes" class="layui-textarea" style="min-height:100px;">{{ row['notes'] if row else '' }}</textarea>
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <div class="layui-input-block">
+          <button class="layui-btn" lay-submit>保存</button>
+          <a class="layui-btn layui-btn-primary" href="{{ url_for('admin_crawlers_list') }}">返回</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -4,7 +4,7 @@
   <div class="layui-card-header">采集规则库</div>
   <div class="layui-card-body">
     <a class="layui-btn" href="{{ url_for('admin_rules_new') }}">新增规则</a>
-    <table class="layui-table" style="margin-top:12px;">
+    <table class="layui-table table-tight" style="margin-top:12px;">
       <thead>
         <tr><th>ID</th><th>站点</th><th>标题XPath</th><th>内容XPath</th><th>Headers</th><th>更新时间</th><th>操作</th></tr>
       </thead>
@@ -18,6 +18,7 @@
           <td><span class="clip">{{ r['headers_json'] }}</span></td>
           <td><span class="clip">{{ r['updated_at'] }}</span></td>
           <td>
+            <div class="op-col">
             <button class="layui-btn layui-btn-xs btn-toggle" 
               data-site="{{ r['site'] }}" 
               data-title="{{ r['title_xpath'] }}" 
@@ -25,9 +26,10 @@
               data-headers="{{ r['headers_json'] }}">展开</button>
             <a class="layui-btn layui-btn-normal layui-btn-xs" href="{{ url_for('admin_rules_preview', rule_id=r['id']) }}">预览</a>
             <a class="layui-btn layui-btn-primary layui-btn-xs" href="{{ url_for('admin_rules_edit', rule_id=r['id']) }}">编辑</a>
-            <form method="post" action="{{ url_for('admin_rules_delete', rule_id=r['id']) }}" style="display:inline;">
+            <form method="post" action="{{ url_for('admin_rules_delete', rule_id=r['id']) }}">
               <button class="layui-btn layui-btn-danger layui-btn-xs">删除</button>
             </form>
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -36,7 +38,9 @@
   </div>
 </div>
 <style>
-.clip{max-width:240px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.table-tight{table-layout:fixed;width:100%}
+.clip{max-width:160px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-col{display:flex;flex-direction:column;gap:6px}
 .detail-wrap{padding:12px;background:#f7f8fa}
 .detail-wrap .k{display:inline-block;min-width:120px;color:#666}
 .detail-wrap pre{white-space:pre-wrap;word-wrap:break-word;margin:0}

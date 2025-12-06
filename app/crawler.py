@@ -117,10 +117,18 @@ def crawl_baidu_news(keyword: str, limit: int = 10, delay_ms: int | None = None)
             block.find('span', class_='source'),
             block.find('div', class_='news-source'),
             block.find('p', class_='source'),
+            block.find('span', class_='c-source'),
+            block.find('a', class_='c-showurl'),
         ]:
             if cand and _clean(cand.get_text()):
                 src = _clean(cand.get_text())
                 break
+        
+        if not src and url:
+            try:
+                src = urllib.parse.urlparse(url).netloc
+            except Exception:
+                pass
 
         for cand in [
             block.find('div', class_='c-summary'),

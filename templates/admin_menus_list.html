@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="layui-card">
+  <div class="layui-card-header">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <span>菜单管理</span>
+      <a href="{{ url_for('admin_menus_new') }}" class="layui-btn layui-btn-sm layui-btn-normal">新增菜单</a>
+    </div>
+  </div>
+  <div class="layui-card-body">
+    <table class="layui-table">
+      <thead>
+        <tr>
+          <th>名称</th>
+          <th>Endpoint/URL</th>
+          <th>父级菜单</th>
+          <th>排序</th>
+          <th>可见</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in menus %}
+        <tr>
+          <td>{{ m.name }}</td>
+          <td>{{ m.endpoint or '-' }}</td>
+          <td>{{ m.parent_name or '-' }}</td>
+          <td>{{ m.order_num }}</td>
+          <td>
+            {% if m.is_visible %}
+            <span class="layui-badge layui-bg-green">显示</span>
+            {% else %}
+            <span class="layui-badge layui-bg-gray">隐藏</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="layui-btn-group">
+              <a href="{{ url_for('admin_menus_edit', menu_id=m.id) }}" class="layui-btn layui-btn-xs">编辑</a>
+              <form action="{{ url_for('admin_menus_delete', menu_id=m.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('确定删除？这将解除其子菜单的关联。');">
+                <button class="layui-btn layui-btn-xs layui-btn-danger">删除</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

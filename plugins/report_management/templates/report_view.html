@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ report.title }}</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+        h1 { text-align: center; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .content { margin-top: 20px; }
+        .actions { margin-bottom: 20px; text-align: right; }
+        a.btn { display: inline-block; padding: 8px 16px; background: #009688; color: #fff; text-decoration: none; border-radius: 2px; }
+        a.btn:hover { opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <div class="actions">
+        <a href="{{ url_for('report_management.download', report_id=report.id) }}" class="btn">下载 PDF</a>
+    </div>
+    <h1>{{ report.title }}</h1>
+    <div class="content">
+        {{ report.content_html | safe }}
+    </div>
+</body>
+</html>

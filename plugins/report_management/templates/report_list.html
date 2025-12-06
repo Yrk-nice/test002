@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="layui-card">
+  <div class="layui-card-header">报告管理</div>
+  <div class="layui-card-body">
+    <div class="layui-tab layui-tab-brief">
+      <ul class="layui-tab-title">
+        <li class="layui-this">已生成报告</li>
+        <li>待生成文章</li>
+      </ul>
+      <div class="layui-tab-content">
+        <!-- Tab 1: Reports -->
+        <div class="layui-tab-item layui-show">
+            <table class="layui-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>报告标题</th>
+                        <th>生成时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in reports %}
+                    <tr>
+                        <td>{{ r.id }}</td>
+                        <td>{{ r.title }}</td>
+                        <td>{{ r.created_at }}</td>
+                        <td>
+                            <a href="{{ url_for('report_management.view', report_id=r.id) }}" class="layui-btn layui-btn-xs layui-btn-normal" target="_blank">预览</a>
+                            <a href="{{ url_for('report_management.download', report_id=r.id) }}" class="layui-btn layui-btn-xs">下载PDF</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Tab 2: Articles -->
+        <div class="layui-tab-item">
+            <table class="layui-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>文章标题</th>
+                        <th>采集时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in articles %}
+                    <tr>
+                        <td>{{ a.id }}</td>
+                        <td>{{ a.title }}</td>
+                        <td>{{ a.deep_fetched_at }}</td>
+                        <td>
+                            <button class="layui-btn layui-btn-xs layui-btn-warm btn-gen" data-id="{{ a.id }}">生成报告</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait for layui to be defined
+    if (typeof layui !== 'undefined') {
+        layui.use(['element', 'layer', 'jquery'], function(){
+          var element = layui.element;
+          var layer = layui.layer;
+          var $ = layui.jquery;
+          
+          $('.btn-gen').on('click', function(){
+              var id = $(this).data('id');
+              var btn = $(this);
+              btn.addClass('layui-btn-disabled').prop('disabled', true).text('生成中...');
+              
+              $.post("{{ url_for('report_management.generate', article_id=0) }}".replace('0', id), {}, function(res){
+                  if(res.ok){
+                      layer.msg('生成成功', {icon: 1});
+                      setTimeout(function(){ location.reload(); }, 1000);
+                  } else {
+                      layer.msg('生成失败: ' + res.error, {icon: 2});
+                      btn.removeClass('layui-btn-disabled').prop('disabled', false).text('生成报告');
+                  }
+              }).fail(function(xhr){
+                  layer.msg('请求失败: ' + xhr.responseText, {icon: 2});
+                  btn.removeClass('layui-btn-disabled').prop('disabled', false).text('生成报告');
+              });
+          });
+        });
+    }
+});
+</script>
+{% endblock %}

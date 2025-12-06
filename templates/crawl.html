@@ -15,19 +15,7 @@
       <button class="layui-btn" id="btn-crawl" type="button">采集</button>
       <button class="layui-btn layui-btn-normal" id="btn-save" type="button" disabled>保存选中</button>
     </div>
-    <table class="layui-table" id="result-table">
-      <thead>
-        <tr>
-          <th>选择</th>
-          <th>标题</th>
-          <th>来源</th>
-          <th>概要</th>
-          <th>封面</th>
-          <th>原始URL</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <div id="result-grid" class="grid"></div>
   </div>
 </div>
 {% endblock %}
@@ -40,19 +28,20 @@ layui.use(function(){
   var element = layui.element;
   var data = [];
   function render(){
-    var tbody = $('#result-table tbody');
-    tbody.empty();
+    var grid = $('#result-grid');
+    grid.empty();
     data.forEach(function(it, idx){
-      var img = it.cover ? ('<img src="'+it.cover+'" style="height:32px">') : '';
-      var row = '<tr>'+
-        '<td><input type="checkbox" data-idx="'+idx+'"></td>'+
-        '<td>'+ (it.title||'') +'</td>'+
-        '<td>'+ (it.source||'') +'</td>'+
-        '<td>'+ (it.summary||'') +'</td>'+
-        '<td>'+ img +'</td>'+
-        '<td><a class="layui-font-blue" target="_blank" href="'+ (it.url||'#') +'">打开</a></td>'+
-        '</tr>';
-      tbody.append(row);
+      var img = it.cover ? ('<div class="gi-cover"><img src="'+it.cover+'"/></div>') : '';
+      var card = '<div class="grid-item">'
+        + '<div class="gi-card">'
+        + '<div class="gi-top"><input type="checkbox" data-idx="'+idx+'"><a class="layui-font-blue" target="_blank" href="'+ (it.url||'#') +'">打开</a></div>'
+        + img
+        + '<div class="gi-title">'+ (it.title||'') +'</div>'
+        + '<div class="gi-meta">'+ (it.source||'') +'</div>'
+        + '<div class="gi-summary">'+ (it.summary||'') +'</div>'
+        + '</div>'
+        + '</div>';
+      grid.append(card);
     });
     $('#btn-save').prop('disabled', data.length===0);
   }
@@ -60,7 +49,7 @@ layui.use(function(){
     var busy = $('#btn-crawl').prop('disabled');
     if(busy) return;
     var kw = $('#kw').val().trim();
-    var limit = $('#limit').val().trim() || '20';
+    var limit = $('#limit').val().trim() || '10';
     if(!kw){ return layer.msg('请输入关键词'); }
     $('#btn-crawl').prop('disabled', true);
     element.progress('crawlProgress','0%');
@@ -80,7 +69,7 @@ layui.use(function(){
   });
   $('#btn-save').on('click', function(){
     var selected = [];
-    $('#result-table tbody input[type=checkbox]:checked').each(function(){
+    $('#result-grid input[type=checkbox]:checked').each(function(){
       var idx = $(this).data('idx');
       selected.push(data[idx]);
     });
@@ -99,4 +88,15 @@ layui.use(function(){
   });
 });
 </script>
+<style>
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:12px}
+.grid-item{}
+.gi-card{border:1px solid #eee;border-radius:8px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+.gi-top{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f0f0}
+.gi-cover{width:100%;height:160px;overflow:hidden;background:#fafafa}
+.gi-cover img{width:100%;height:100%;object-fit:cover}
+.gi-title{font-weight:600;padding:10px}
+.gi-meta{color:#888;padding:0 10px 6px}
+.gi-summary{padding:0 10px 12px;color:#333}
+</style>
 {% endblock %}

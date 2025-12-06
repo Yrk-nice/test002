@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="layui-card" style="height: calc(100vh - 120px); display: flex; flex-direction: column;">
+  <div class="layui-card-header">在线聊天室</div>
+  <div class="layui-card-body" style="flex: 1; display: flex; padding: 0;">
+    <!-- Left: User List -->
+    <div style="width: 200px; border-right: 1px solid #eee; display: flex; flex-direction: column;">
+      <div class="user-list-header" style="padding: 10px; background: #f2f2f2; font-weight: bold;">
+        用户列表
+      </div>
+      <ul class="user-list" style="flex: 1; overflow-y: auto; padding: 0;">
+        <li class="user-item active" data-id="" style="padding: 10px; cursor: pointer; border-bottom: 1px solid #f8f8f8;">
+          <i class="layui-icon layui-icon-group"></i> 群聊大厅
+        </li>
+        {% for u in users %}
+          {% if u.id != current_user_id %}
+          <li class="user-item" data-id="{{ u.id }}" style="padding: 10px; cursor: pointer; border-bottom: 1px solid #f8f8f8;">
+            <i class="layui-icon layui-icon-username"></i> {{ u.username }}
+          </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+    </div>
+    
+    <!-- Right: Chat Area -->
+    <div style="flex: 1; display: flex; flex-direction: column;">
+      <div id="chat-title" style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; background: #fff;">
+        群聊大厅
+      </div>
+      <div id="chat-msgs" style="flex: 1; overflow-y: auto; padding: 15px; background: #fbfbfb;">
+        <!-- Messages will be injected here -->
+      </div>
+      <div style="height: 120px; border-top: 1px solid #eee; padding: 10px; display: flex; flex-direction: column; background: #fff;">
+        <textarea id="msg-input" class="layui-textarea" style="flex: 1; resize: none; border: none;" placeholder="输入消息... (@ai 召唤助手)"></textarea>
+        <div style="text-align: right; margin-top: 5px;">
+          <button id="btn-send" class="layui-btn layui-btn-sm layui-btn-normal">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.user-item:hover { background: #f0f0f0; }
+.user-item.active { background: #e6f7ff; color: #1890ff; border-right: 2px solid #1890ff; }
+
+.msg-row { margin-bottom: 15px; display: flex; flex-direction: column; }
+.msg-row.self { align-items: flex-end; }
+.msg-row.other { align-items: flex-start; }
+.msg-meta { font-size: 12px; color: #999; margin-bottom: 4px; }
+.msg-content { 
+  padding: 8px 12px; 
+  border-radius: 4px; 
+  max-width: 70%; 
+  word-wrap: break-word; 
+  line-height: 1.5;
+  font-size: 14px;
+}
+.msg-row.self .msg-content { background: #95ec69; color: #000; }
+.msg-row.other .msg-content { background: #fff; border: 1px solid #eee; }
+.msg-row.ai .msg-content { background: #e6f7ff; border: 1px solid #bae7ff; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait for layui to be defined
+    if (typeof layui !== 'undefined') {
+        layui.use(['jquery', 'layer'], function(){
+          var $ = layui.jquery;
+          var layer = layui.layer;
+          
+          var currentTargetId = ''; // Empty for group
+          var lastMsgId = 0;
+          var pollTimer = null;
+          var currentUserId = {{ current_user_id }};
+          
+          // Switch chat
+          $('.user-item').on('click', function(){
+            $('.user-item').removeClass('active');
+            $(this).addClass('active');
+            currentTargetId = $(this).data('id');
+            var name = $(this).text().trim();
+            $('#chat-title').text(name);
+            
+            // Clear msgs and reset polling
+            $('#chat-msgs').empty();
+            lastMsgId = 0;
+            fetchMessages();
+          });
+          
+          // Send message
+          $('#btn-send').on('click', function(){
+            var txt = $('#msg-input').val().trim();
+            if(!txt) return;
+            
+            // Disable button temporarily
+            var btn = $(this);
+            btn.addClass('layui-btn-disabled').prop('disabled', true);
+
+            $.ajax({
+              url: "{{ url_for('chat_room.send_message') }}",
+              type: 'POST',
+              contentType: 'application/json',
+              data: JSON.stringify({ content: txt, target_id: currentTargetId }),
+              success: function(res){
+                btn.removeClass('layui-btn-disabled').prop('disabled', false);
+                if(res.ok){
+                  $('#msg-input').val('');
+                  fetchMessages(); // Immediate fetch
+                } else {
+                  layer.msg('发送失败: ' + res.error);
+                }
+              },
+              error: function(xhr) {
+                btn.removeClass('layui-btn-disabled').prop('disabled', false);
+                layer.msg('请求失败: ' + xhr.statusText);
+              }
+            });
+          });
+          
+          // Poll messages
+          function fetchMessages() {
+            $.get("{{ url_for('chat_room.get_messages') }}", { target_id: currentTargetId, last_id: lastMsgId }, function(res){
+              if(res.ok && res.messages.length > 0){
+                var scrollBottom = false;
+                var div = $('#chat-msgs');
+                // Check if near bottom
+                if(div[0].scrollHeight - div.scrollTop() - div.height() < 50) {
+                    scrollBottom = true;
+                }
+                
+                res.messages.forEach(function(m){
+                  if(m.id > lastMsgId) lastMsgId = m.id;
+                  
+                  var isSelf = (m.sender_id == currentUserId);
+                  var isAi = m.is_ai;
+                  var cls = isSelf ? 'self' : 'other';
+                  if(isAi) cls = 'other ai';
+                  
+                  var contentHtml = escapeHtml(m.content);
+                  
+                  // Try to parse weather card
+                  if(m.content.startsWith('{"type": "weather_card"')) {
+                      try {
+                          var card = JSON.parse(m.content);
+                          if(card.type === 'weather_card') {
+                              contentHtml = renderWeatherCard(card);
+                          }
+                      } catch(e) {}
+                  }
+                  
+                  var html = `
+                    <div class="msg-row ${cls}">
+                      <div class="msg-meta">${m.sender_name} · ${m.created_at.substring(11,19)}</div>
+                      <div class="msg-content">${contentHtml}</div>
+                    </div>
+                  `;
+                  div.append(html);
+                });
+                
+                if(scrollBottom || lastMsgId === res.messages[res.messages.length-1].id) { // First load or user at bottom
+                     div.scrollTop(div[0].scrollHeight);
+                }
+              }
+            });
+          }
+          
+          function renderWeatherCard(card) {
+              var html = `<div class="weather-card" style="padding:5px; min-width: 250px;">
+                  <div style="font-weight:bold; border-bottom:1px solid #ddd; padding-bottom:5px; margin-bottom:5px;">
+                    ${card.city} 天气预报
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:5px;">`;
+              
+              if(card.forecast && card.forecast.length > 0) {
+                  card.forecast.forEach(function(item){
+                      html += `<div style="display:flex; justify-content:space-between; font-size:12px;">
+                          <span style="width:40px;">${item.date}</span>
+                          <span style="width:40px;">${item.weather}</span>
+                          <span style="flex:1; text-align:right;">${item.temperature}</span>
+                      </div>`;
+                  });
+              } else {
+                  html += `<div>暂无预报数据</div>`;
+              }
+              
+              html += `</div></div>`;
+              return html;
+          }
+          
+          function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;")
+                .replace(/\n/g, "<br>");
+          }
+          
+          // Start polling
+          setInterval(fetchMessages, 2000);
+          fetchMessages(); // Initial
+        });
+    }
+});
+</script>
+{% endblock %}

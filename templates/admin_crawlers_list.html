@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="layui-card">
+  <div class="layui-card-header">爬虫管理</div>
+  <div class="layui-card-body">
+    <a class="layui-btn" href="{{ url_for('admin_crawlers_new') }}">新增爬虫</a>
+    <table class="layui-table table-tight" style="margin-top:12px;">
+      <thead>
+        <tr><th>ID</th><th>名称</th><th>基础URL</th><th>起始URL</th><th>启用</th><th>更新时间</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r['id'] }}</td>
+          <td>{{ r['name'] }}</td>
+          <td><span class="clip">{{ r['base_url'] }}</span></td>
+          <td><span class="clip">{{ r['start_url'] }}</span></td>
+          <td>{{ '是' if r['enabled'] else '否' }}</td>
+          <td>{{ r['updated_at'] }}</td>
+          <td>
+            <div class="op-col">
+              <a class="layui-btn layui-btn-primary layui-btn-xs" href="{{ url_for('admin_crawlers_edit', crawler_id=r['id']) }}">编辑</a>
+              <form method="post" action="{{ url_for('admin_crawlers_delete', crawler_id=r['id']) }}">
+                <button class="layui-btn layui-btn-danger layui-btn-xs">删除</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if rows|length == 0 %}
+        <tr><td colspan="7" style="text-align:center;color:#9ca3af;">暂无配置</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<style>
+.table-tight{table-layout:fixed;width:100%}
+.clip{max-width:160px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-col{display:flex;flex-direction:column;gap:6px}
+</style>
+{% endblock %}

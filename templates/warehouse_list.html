@@ -7,7 +7,7 @@
       <input class="layui-input" name="q" value="{{ q }}" placeholder="搜索标题/来源/关键词" style="max-width:280px;">
       <button class="layui-btn" lay-submit>查询</button>
     </form>
-    <table class="layui-table">
+    <table class="layui-table table-tight">
       <thead>
         <tr><th>ID</th><th>标题</th><th>来源</th><th>原始URL</th><th>时间</th><th>深度状态</th><th>操作</th></tr>
       </thead>
@@ -15,22 +15,24 @@
         {% for r in rows %}
         <tr>
           <td>{{ r['id'] }}</td>
-          <td>{{ r['title'] }}</td>
-          <td>{{ r['source'] }}</td>
-          <td><a class="layui-font-blue" target="_blank" href="{{ r['original_url'] }}">打开</a></td>
-          <td>{{ r['created_at'] }}</td>
+          <td><span class="clip">{{ r['title'] }}</span></td>
+          <td><span class="clip">{{ r['source'] }}</span></td>
+          <td><span class="clip"><a class="layui-font-blue" target="_blank" href="{{ r['original_url'] }}">打开</a></span></td>
+          <td><span class="clip">{{ r['created_at'] }}</span></td>
           <td class="deep-status">{{ '已执行' if r['deep_done'] else '未执行' }}</td>
           <td>
-            <button class="layui-btn layui-btn-warm layui-btn-xs btn-collect" data-id="{{ r['id'] }}">详细采集</button>
-            <button class="layui-btn layui-btn-normal layui-btn-xs btn-preview" data-id="{{ r['id'] }}">预览</button>
-            <button class="layui-btn layui-btn-primary layui-btn-xs btn-deep" data-id="{{ r['id'] }}" {% if r['deep_done'] %}disabled{% endif %}>深度采集</button>
-            {% if session.get('role_name') == 'admin' %}
-            <a class="layui-btn layui-btn-primary layui-btn-xs" href="{{ url_for('warehouse_edit', article_id=r['id']) }}">编辑</a>
-            <form method="post" action="{{ url_for('warehouse_delete', article_id=r['id']) }}" style="display:inline;">
-              <button class="layui-btn layui-btn-danger layui-btn-xs">删除</button>
-            </form>
-            <button class="layui-btn layui-btn-warm layui-btn-xs btn-analyze" data-id="{{ r['id'] }}">AI解析</button>
-            {% endif %}
+            <div class="op-col">
+              <button class="layui-btn layui-btn-warm layui-btn-xs btn-collect" data-id="{{ r['id'] }}">详细采集</button>
+              <button class="layui-btn layui-btn-normal layui-btn-xs btn-preview" data-id="{{ r['id'] }}">预览</button>
+              <button class="layui-btn layui-btn-primary layui-btn-xs btn-deep" data-id="{{ r['id'] }}">深度采集</button>
+              {% if session.get('role_name') == 'admin' %}
+              <a class="layui-btn layui-btn-primary layui-btn-xs" href="{{ url_for('warehouse_edit', article_id=r['id']) }}">编辑</a>
+              <form method="post" action="{{ url_for('warehouse_delete', article_id=r['id']) }}">
+                <button class="layui-btn layui-btn-danger layui-btn-xs">删除</button>
+              </form>
+              <button class="layui-btn layui-btn-warm layui-btn-xs btn-analyze" data-id="{{ r['id'] }}">AI解析</button>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -38,6 +40,11 @@
     </table>
   </div>
 </div>
+<style>
+.table-tight{table-layout:fixed;width:100%}
+.clip{max-width:160px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-col{display:flex;flex-direction:column;gap:6px}
+</style>
 {% endblock %}
 
 {% block scripts %}

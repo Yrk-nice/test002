@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="layui-card">
+  <div class="layui-card-header">AI数据清洗分析</div>
+  <div class="layui-card-body">
+    <div class="clean-top">
+      <select id="engine" class="layui-input" style="max-width:280px;">
+        <option value="">请选择AI引擎</option>
+        {% for e in engines %}
+        <option value="{{ e['id'] }}">{{ e['provider'] }} - {{ e['model_name'] }}</option>
+        {% endfor %}
+      </select>
+      <form class="layui-form" method="get" style="display:flex;gap:8px;align-items:center;">
+        <input class="layui-input" name="q" value="{{ q }}" placeholder="搜索标题/来源/关键词" style="max-width:280px;">
+        <button class="layui-btn" lay-submit>查询</button>
+      </form>
+    </div>
+    <table class="layui-table">
+      <thead>
+        <tr><th>ID</th><th>标题</th><th>来源</th><th>原始URL</th><th>时间</th><th>深度状态</th><th>操作</th></tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r['id'] }}</td>
+          <td>{{ r['title'] }}</td>
+          <td>{{ r['source'] }}</td>
+          <td><a class="layui-font-blue" target="_blank" href="{{ r['original_url'] }}">打开</a></td>
+          <td>{{ r['created_at'] }}</td>
+          <td>{{ '已执行' if r['deep_done'] else '未执行' }}</td>
+          <td>
+            <button class="layui-btn layui-btn-normal layui-btn-xs btn-preview" data-id="{{ r['id'] }}">清洗预览</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div id="preview-box" style="display:none;"></div>
+</div>
+<style>
+.clean-top{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.pv-title{font-weight:600;margin-bottom:8px}
+.pv-content{white-space:pre-wrap;word-wrap:break-word;border:1px solid #eee;border-radius:8px;padding:10px;background:#fafafa}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+layui.use(function(){
+  var $ = layui.$; var layer = layui.layer;
+  function ensureEngine(){ var id = $('#engine').val(); if(!id){ layer.msg('请选择AI引擎'); return null; } return id; }
+  $('.btn-preview').on('click', function(){
+    var id = $(this).data('id'); var eng = ensureEngine(); if(!eng) return;
+    layer.load(1);
+    $.ajax({
+      url:'/admin/clean/preview', method:'POST', contentType:'application/json',
+      data: JSON.stringify({ article_id: id, engine_id: eng }),
+      success:function(r){
+        layer.closeAll('loading');
+        if(!r || !r.ok){ layer.msg(r && r.error ? r.error : '清洗失败'); return; }
+        var html = '<div class="layui-text">'
+          + '<div class="pv-title">'+ (r.title||'') +'</div>'
+          + '<div class="pv-content">'+ (r.content||'') +'</div>'
+          + '<div style="margin-top:12px;display:flex;gap:8px;">'
+          +   '<button class="layui-btn" id="apply">更新到数据库</button>'
+          +   '<button class="layui-btn layui-btn-primary" id="close">关闭</button>'
+          + '</div>'
+          + '</div>';
+        var index = layer.open({ title:'清洗预览', area:['760px','560px'], content: html });
+        $('#apply').on('click', function(){
+          $('#apply').prop('disabled', true);
+          $.ajax({ url:'/admin/clean/apply', method:'POST', contentType:'application/json',
+            data: JSON.stringify({ article_id: id, title: r.title||'', content: r.content||'' }),
+            success:function(res){ layer.msg(res && res.ok ? '已更新' : (res && res.error ? res.error : '更新失败')); layer.close(index); },
+            error:function(){ layer.msg('更新失败'); $('#apply').prop('disabled', false); }
+          });
+        });
+        $('#close').on('click', function(){ layer.close(index); });
+      },
+      error:function(){ layer.closeAll('loading'); layer.msg('请求失败'); }
+    });
+  });
+});
+</script>
+{% endblock %}
